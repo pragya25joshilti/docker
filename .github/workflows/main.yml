@@ -1,0 +1,37 @@
+name: Build & Push to Amazon ECR Public
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+ 
+env:
+  AWS_REGION: us-east-1
+  PUBLIC_ECR_REPO: "public.ecr.aws/g8p5r2b9/git"
+  IMAGE_TAG: "${{ github.run_number }}"
+ 
+jobs:
+  build:
+    runs-on: [ self-hosted, dev]
+ 
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+ 
+      - name: Login to Amazon ECR Public
+        run: |
+          aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/g8p5r2b9
+ 
+      - name: Build Docker Image
+        run: |
+          docker build -t  "${PUBLIC_ECR_REPO}:${IMAGE_TAG}" .
+ 
+      - name: Push Image to ECR Public
+        run: |
+          docker push "${PUBLIC_ECR_REPO}:${IMAGE_TAG}"
+ 
+      - name: Stop old container and run new one
+        run: |
+          docker ps -aq -f name=sairam | xargs -r docker stop
+          docker ps -aq -f name=sairam | xargs -r docker rm
+          docker run --rm -dit --name sairam --publish 8000:80 "${PUBLIC_ECR_REPO}:${IMAGE_TAG}"
